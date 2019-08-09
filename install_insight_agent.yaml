@@ -1,0 +1,65 @@
+---
+schemaVersion: '0.3'
+assumeRole: "{{AutomationAssumeRole}}"
+parameters:
+  AutomationAssumeRole:
+    default: ""
+    type: String
+    description: "(Optional) The ARN of the role that allows Automation to perform the actions on your behalf."
+  PlatformToken:
+    default: ""
+    type: String
+    description: "(Required) The platform token used to download and install the Insight agent"
+mainSteps:
+- name: GetInstance
+  action: aws:executeAwsApi
+  inputs:
+    Service: ssm
+    Api: DescribeInstanceInformation
+  outputs:
+  - Name: myInstance
+    Selector: "$.InstanceInformationList[0].InstanceId"
+    Type: String
+  - Name: platform
+    Selector: "$.InstanceInformationList[0].PlatformType"
+    Type: String
+- name: ChooseOSforCommands
+  action: aws:branch
+  inputs:
+    Choices:
+    - NextStep: runPowerShellCommand
+      Variable: "{{GetInstance.platform}}"
+      StringEquals: Windows
+    - NextStep: runShellCommand
+      Variable: "{{GetInstance.platform}}"
+      StringEquals: Linux
+    Default:
+      Sleep
+- name: runShellCommand
+  action: aws:runCommand
+  inputs:
+    DocumentName: AWS-RunShellScript
+    InstanceIds:
+    - "{{GetInstance.myInstance}}"
+    Parameters:
+      commands:
+      - wget https://s3.amazonaws.com/com.rapid7.razor.public/endpoint/agent/latest/linux/x86_64/agent_control_latest.sh
+      - chmod u+x agent_control_latest.sh
+      - sudo ./agent_control_latest.sh install_start --token {{PlatformToken}}
+  isEnd: true
+- name: runPowerShellCommand
+  action: aws:runCommand
+  inputs:
+    DocumentName: AWS-RunPowerShellScript
+    InstanceIds:
+    - "{{GetInstance.myInstance}}"
+    Parameters:
+      commands:
+      - $path = Get-Location
+      - (New-Object System.Net.WebClient).DownloadFile("https://s3.amazonaws.com/com.rapid7.razor.public/endpoint/agent/latest/windows/x86_64/PyForensicsAgent-x64.msi", "$path\agent_installer.msi")
+      - msiexec.exe /i agent_installer.msi CUSTOMCONFIGPATH=$path CUSTOMTOKEN={{PlatformToken}} /qn /norestart /L*v installer.log
+  isEnd: true
+- name: Sleep
+  action: aws:sleep
+  inputs:
+    Duration: PT3S

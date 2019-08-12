@@ -1,2 +1,2 @@
-# AWS-SSM-Documents
-This is a collection of useful SSM documents to automation of tasks/configurations in AWS
+# SSM Automation for the Insight Agent
+Roles and automation document for blog series on automating security tasks in AWS.

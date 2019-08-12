@@ -1,0 +1,81 @@
+{
+    "Parameters": {
+        "MasterAccountId": {
+            "Type": "String",
+            "Description": "AWS Account Id of the master account (the account from which AWS Systems Manager Automation will be initiated).",
+            "MaxLength": 12,
+            "MinLength": 12
+        }
+    },
+    "Resources": {
+        "AWSSystemsManagerAutomationExecutionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": "AWS-SystemsManager-AutomationExecutionRole",
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": {
+                                    "Ref": "MasterAccountId"
+                                }
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": "ssm.amazonaws.com"
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "ExecutionPolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "*",
+                                    "Resource": "*"
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "iam:PassRole"
+                                    ],
+                                    "Resource": {
+                                        "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/AWS-SystemsManager-AutomationExecutionRole"
+                                    }
+                                },
+                                {
+                                    "Effect": "Deny",
+                                    "Action": [
+                                        "iam:ChangePassword",
+                                        "iam:Create*",
+                                        "iam:Delete*",
+                                        "iam:Detach*",
+                                        "iam:Remove*",
+                                        "iam:Update*",
+                                        "iam:Upload*"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

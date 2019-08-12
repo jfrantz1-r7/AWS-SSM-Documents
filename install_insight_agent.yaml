@@ -1,65 +1,70 @@
 ---
-schemaVersion: '0.3'
+schemaVersion: "0.3"
 assumeRole: "{{AutomationAssumeRole}}"
 parameters:
   AutomationAssumeRole:
     default: ""
-    type: String
-    description: "(Optional) The ARN of the role that allows Automation to perform the actions on your behalf."
+    type: "String"
+    description: "(Optional) The ARN of the role that allows Automation to perform\
+      \ the actions on your behalf."
   PlatformToken:
     default: ""
-    type: String
-    description: "(Required) The platform token used to download and install the Insight agent"
+    type: "String"
+    description: "(Required) The platform token used to download and install the Insight\
+      \ agent"
+  InstanceID:
+    default: ""
+    type: "String"
+    description: "(Required) Instance IDs of EC2 instances"
 mainSteps:
-- name: GetInstance
-  action: aws:executeAwsApi
+- name: "GetInstance"
+  action: "aws:executeAwsApi"
   inputs:
-    Service: ssm
-    Api: DescribeInstanceInformation
+    Service: "ssm"
+    Api: "DescribeInstanceInformation"
+    Filters:
+    - Key: "InstanceIds"
+      Values:
+      - "{{InstanceID}}"
   outputs:
-  - Name: myInstance
+  - Name: "myInstance"
     Selector: "$.InstanceInformationList[0].InstanceId"
-    Type: String
-  - Name: platform
+    Type: "String"
+  - Name: "platform"
     Selector: "$.InstanceInformationList[0].PlatformType"
-    Type: String
-- name: ChooseOSforCommands
-  action: aws:branch
+    Type: "String"
+- name: "ChooseOSforCommands"
+  action: "aws:branch"
   inputs:
     Choices:
-    - NextStep: runPowerShellCommand
+    - NextStep: "runPowerShellCommand"
       Variable: "{{GetInstance.platform}}"
-      StringEquals: Windows
-    - NextStep: runShellCommand
+      StringEquals: "Windows"
+    - NextStep: "runShellCommand"
       Variable: "{{GetInstance.platform}}"
-      StringEquals: Linux
-    Default:
-      Sleep
-- name: runShellCommand
-  action: aws:runCommand
+      StringEquals: "Linux"
+    Default: "Sleep"
+- name: "runShellCommand"
+  action: "aws:runCommand"
   inputs:
-    DocumentName: AWS-RunShellScript
+    DocumentName: "AWS-RunShellScript"
     InstanceIds:
     - "{{GetInstance.myInstance}}"
     Parameters:
       commands:
-      - wget https://s3.amazonaws.com/com.rapid7.razor.public/endpoint/agent/latest/linux/x86_64/agent_control_latest.sh
-      - chmod u+x agent_control_latest.sh
-      - sudo ./agent_control_latest.sh install_start --token {{PlatformToken}}
+      - DIRECTORY=/opt/rapid7/ir_agent;if [ ! -d "$DIRECTORY" ] ;then wget https://s3.amazonaws.com/com.rapid7.razor.public/endpoint/agent/latest/linux/x86_64/agent_control_latest.sh;chmod u+x agent_control_latest.sh;sudo ./agent_control_latest.sh install_start --token {{PlatformToken}};fi
   isEnd: true
-- name: runPowerShellCommand
-  action: aws:runCommand
+- name: "runPowerShellCommand"
+  action: "aws:runCommand"
   inputs:
-    DocumentName: AWS-RunPowerShellScript
+    DocumentName: "AWS-RunPowerShellScript"
     InstanceIds:
     - "{{GetInstance.myInstance}}"
     Parameters:
       commands:
-      - $path = Get-Location
-      - (New-Object System.Net.WebClient).DownloadFile("https://s3.amazonaws.com/com.rapid7.razor.public/endpoint/agent/latest/windows/x86_64/PyForensicsAgent-x64.msi", "$path\agent_installer.msi")
-      - msiexec.exe /i agent_installer.msi CUSTOMCONFIGPATH=$path CUSTOMTOKEN={{PlatformToken}} /qn /norestart /L*v installer.log
+      - If(!(test-path "C:\Program Files\Rapid7\Insight Agent\")){$path = Get-Location; (New-Object System.Net.WebClient).DownloadFile("https://s3.amazonaws.com/com.rapid7.razor.public/endpoint/agent/latest/windows/x86_64/PyForensicsAgent-x64.msi", "$path\agent_installer.msi"); msiexec.exe /i agent_installer.msi CUSTOMCONFIGPATH=$path CUSTOMTOKEN={{PlatformToken}} /qn /norestart /L*v installer.log}
   isEnd: true
-- name: Sleep
-  action: aws:sleep
+- name: "Sleep"
+  action: "aws:sleep"
   inputs:
-    Duration: PT3S
+    Duration: "PT3S"
